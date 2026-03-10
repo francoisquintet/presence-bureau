@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Présence au bureau</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f0;
+    --card: #ffffff;
+    --text: #0f1a0f;
+    --muted: #6b7c6b;
+    --border: rgba(15,26,15,.09);
+    --shadow: 0 2px 12px rgba(15,26,15,.06);
+    --shadow-lg: 0 8px 32px rgba(15,26,15,.10);
+    --radius: 20px;
+    --pill: 999px;
+    --accent: #16a34a;
+    --accent-soft: rgba(22,163,74,.10);
+    --accent-mid: rgba(22,163,74,.25);
+    --today-bg: rgba(22,163,74,.07);
+    --today-border: rgba(22,163,74,.30);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 16px 40px;
+  }
+
+  /* subtle grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(15,26,15,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    box-shadow: var(--shadow);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .brand-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(22,163,74,.30);
+  }
+
+  .spacer { flex: 1; }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    padding: 9px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    transition: all .12s ease;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { background: #f8faf8; box-shadow: var(--shadow); }
+  .btn:active { transform: translateY(1px) scale(.99); }
+  .btn.accent { background: var(--accent-soft); border-color: var(--accent-mid); color: var(--accent); }
+  .btn.accent:hover { background: rgba(22,163,74,.15); }
+
+  .select {
+    border: 1px solid var(--border);
+    padding: 9px 14px;
+    border-radius: 12px;
+    background: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  /* ── PROFILE CARD ── */
+  .profile-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    margin-top: 10px;
+  }
+
+  .profile-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    border: 2px solid var(--accent-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .profile-name { font-weight: 700; font-size: 15px; }
+  .profile-sub { font-size: 13px; color: var(--muted); }
+
+  .name-form {
+    display: none;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .name-form.visible { display: flex; }
+
+  input[type="text"] {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    background: #f8faf8;
+    flex: 1;
+    min-width: 160px;
+    outline: none;
+    transition: border-color .12s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); background: #fff; }
+
+  /* ── MAIN CARD ── */
+  .main-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+    margin-top: 10px;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .range-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── KPI CHIPS ── */
+  .kpi-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  .kpi {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--pill);
+    border: 1px solid var(--border);
+    background: #f8faf8;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .kpi .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  .last-updated { display: none; }
+
+  /* ── DAYS LIST ── */
+  .days-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  /* ── DAY PILL ── */
+  .day-pill {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: box-shadow .12s ease, transform .06s ease;
+  }
+  .day-pill:hover { box-shadow: var(--shadow-lg); }
+  .day-pill.today {
+    background: var(--today-bg);
+    border-color: var(--today-border);
+    box-shadow: 0 4px 20px rgba(22,163,74,.08);
+  }
+
+  .day-label {
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: -0.02em;
+    min-width: 170px;
+    flex-shrink: 0;
+    text-transform: capitalize;
+  }
+  .day-label .day-num {
+    display: block;
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .day-label .day-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+  .day-label .day-date {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 1px;
+  }
+
+  /* TODAY badge */
+  .today-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-mid);
+    border-radius: var(--pill);
+    padding: 2px 8px;
+    margin-top: 4px;
+  }
+
+  /* chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chip {
+    border-radius: var(--pill);
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform .06s ease;
+  }
+  .chip:active { transform: scale(.98); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .chip.empty { color: var(--muted); font-weight: 400; font-size: 13px; background: none; border: none; padding: 6px 0; }
+
+  /* big toggle */
+  .big-toggle {
+    border-radius: 14px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid var(--accent-mid);
+    background: var(--accent-soft);
+    color: var(--accent);
+    cursor: pointer;
+    user-select: none;
+    transition: all .12s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .big-toggle:hover { background: rgba(22,163,74,.16); box-shadow: 0 4px 14px rgba(22,163,74,.15); }
+  .big-toggle:active { transform: translateY(1px) scale(.99); }
+  .big-toggle.off {
+    border-color: var(--border);
+    background: #f8faf8;
+    color: var(--muted);
+  }
+  .big-toggle.off:hover { background: #f0f2f0; color: var(--text); }
+
+  /* status msg */
+  .msg {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+    min-height: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── MOBILE ── */
+  @media (max-width: 680px) {
+    body { padding: 12px 10px 40px; }
+
+    .brand { font-size: 15px; }
+    .topbar { padding: 12px 14px; gap: 8px; }
+    .select, .btn { font-size: 13px; padding: 8px 12px; }
+
+    .day-pill {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 18px;
+      border-radius: 20px;
+    }
+
+    .day-label { min-width: auto; }
+    .day-label .day-num { font-size: 28px; }
+
+    .chips {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chips::-webkit-scrollbar { display: none; }
+
+    .chip { font-size: 14px; padding: 8px 12px; }
+
+    .big-toggle {
+      width: 100%;
+      text-align: center;
+      font-size: 15px;
+      padding: 14px;
+      border-radius: 16px;
+    }
+
+    .last-updated { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">📅</div>
+      Présence au bureau
+    </div>
+    <div class="spacer"></div>
+    <select id="viewDays" class="select">
+      <option value="7" selected>7 jours</option>
+      <option value="14">14 jours</option>
+    </select>
+    <button class="btn" id="prev">←</button>
+    <button class="btn" id="next">→</button>
+    <button class="btn" id="refresh">↺ Rafraîchir</button>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="profile-card">
+    <div class="profile-row">
+      <div class="avatar" id="avatarEl">?</div>
+      <div>
+        <div class="profile-name" id="profileName">Nom non défini</div>
+        <div class="profile-sub">Clique sur "Modifier" pour te nommer</div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" id="editNameBtn">✏️ Modifier mon nom</button>
+    </div>
+    <div class="name-form" id="nameForm">
+      <input type="text" id="nameInput" placeholder="Ton prénom (ex: Sophie)" maxlength="30" />
+      <button class="btn accent" id="saveName">✅ Enregistrer</button>
+      <span id="nameMsg" style="font-size:13px; color:var(--muted);"></span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-card">
+    <div class="meta-row">
+      <span class="range-label" id="rangeLabel">—</span>
+      <div class="spacer"></div>
+      <button class="btn accent" id="weekPresent">✅ Présent toute la période</button>
+      <button class="btn" id="copyPrev">📋 Copier période préc.</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi" id="kpiToday"><span class="dot"></span> Aujourd'hui : <b>—</b></div>
+      <div class="kpi" id="kpiTomorrow"><span class="dot"></span> Demain : <b>—</b></div>
+      <span class="last-updated" id="lastUpdated">—</span>
+    </div>
+
+    <div class="days-list" id="daysList"></div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── STOCKAGE LOCAL (remplacera Supabase plus tard) ───────────────────────
+// Clé unique par navigateur = l'utilisateur
+const ME_KEY = "presence_me_" + (()=>{
+  let k = localStorage.getItem("_uid");
+  if (!k) { k = Math.random().toString(36).slice(2); localStorage.setItem("_uid", k); }
+  return k;
+})();
+
+// Base de données en mémoire (partagée via localStorage pour ce test)
+// Structure: { "YYYY-MM-DD": { "userKey": "PRESENT"|"ABSENT" } }
+// Users: { "userKey": "Nom" }
+
+function dbGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+}
+function dbSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+function getUsers() { return dbGet("pres_users", {}); }
+function setUsers(u) { dbSet("pres_users", u); }
+function getPresence() { return dbGet("pres_data", {}); }
+function setPresence(p) { dbSet("pres_data", p); }
+
+function getMyName() {
+  const users = getUsers();
+  return users[ME_KEY] || "";
+}
+function saveMyName(name) {
+  const users = getUsers();
+  users[ME_KEY] = name;
+  setUsers(users);
+}
+function getMyStatus(dayISO) {
+  const pres = getPresence();
+  return (pres[dayISO] && pres[dayISO][ME_KEY]) || "";
+}
+function toggleMyDay(dayISO) {
+  const pres = getPresence();
+  if (!pres[dayISO]) pres[dayISO] = {};
+  const cur = pres[dayISO][ME_KEY] || "";
+  pres[dayISO][ME_KEY] = (cur === "PRESENT") ? "ABSENT" : "PRESENT";
+  setPresence(pres);
+}
+function setDayStatus(dayISO, status) {
+  const pres = getPresence();
+  if (!pres[dayISO]) pres[dayISO] = {};
+  pres[dayISO][ME_KEY] = status;
+  setPresence(pres);
+}
+function getPresentNames(dayISO) {
+  const pres = getPresence();
+  const users = getUsers();
+  const day = pres[dayISO] || {};
+  return Object.entries(day)
+    .filter(([, s]) => s === "PRESENT")
+    .map(([k]) => users[k] || "(Sans nom)")
+    .sort((a, b) => a.localeCompare(b, "fr"));
+}
+
+// ─── DÉMO : ajouter des collègues fictifs ────────────────────────────────
+function seedDemoData() {
+  // Efface tout et repart de zéro avec les bons noms
+  if (dbGet("pres_seeded_v3", false)) return;
+  localStorage.removeItem("pres_users");
+  localStorage.removeItem("pres_data");
+  localStorage.removeItem("pres_seeded");
+  localStorage.removeItem("pres_seeded_v2");
+
+  const fakeUsers = { "demo_damien": "Damien", "demo_emilie": "Émilie", "demo_barbara": "Barbara", "demo_hakima": "Hakima", "demo_philippine": "Philippine" };
+  setUsers(fakeUsers);
+
+  const pres = {};
+  const today = new Date(); today.setHours(0,0,0,0);
+  const fakeKeys = Object.keys(fakeUsers);
+
+  for (let i = -3; i < 14; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const iso = toISO(d);
+    if (!pres[iso]) pres[iso] = {};
+    fakeKeys.forEach(k => {
+      if (Math.random() > 0.35) pres[iso][k] = "PRESENT";
+    });
+  }
+  setPresence(pres);
+  dbSet("pres_seeded_v3", true);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────
+function toISO(d) {
+  return d.getFullYear() + "-" +
+    String(d.getMonth()+1).padStart(2,"0") + "-" +
+    String(d.getDate()).padStart(2,"0");
+}
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function startOfWeekMon(d) {
+  const x = new Date(d); x.setHours(0,0,0,0);
+  const day = x.getDay() || 7;
+  x.setDate(x.getDate() - (day - 1));
+  return x;
+}
+function isToday(dayISO) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  return dayISO === toISO(t);
+}
+function prettyDay(d) {
+  return d.toLocaleDateString("fr-FR", { weekday:"long", day:"2-digit", month:"long" });
+}
+function dayNum(d) { return String(d.getDate()).padStart(2,"0"); }
+function dayName(d) { return d.toLocaleDateString("fr-FR", { weekday:"short" }); }
+function dayMonth(d) { return d.toLocaleDateString("fr-FR", { day:"2-digit", month:"2-digit" }); }
+
+// couleur par nom
+function colorFromName(name) {
+  let h = 2166136261;
+  for (let i=0; i<name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
+  h = (h >>> 0) % 360;
+  return {
+    bg: `hsla(${h},65%,92%,1)`,
+    border: `hsla(${h},50%,72%,1)`,
+    dot: `hsla(${h},60%,45%,1)`,
+    text: `hsla(${h},55%,20%,1)`
+  };
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+let start = startOfWeekMon(new Date());
+let daysCount = 7;
+
+// ─── UI REFS ─────────────────────────────────────────────────────────────
+const daysListEl = document.getElementById("daysList");
+const msgEl = document.getElementById("msg");
+const rangeLabel = document.getElementById("rangeLabel");
+const profileName = document.getElementById("profileName");
+const avatarEl = document.getElementById("avatarEl");
+const nameForm = document.getElementById("nameForm");
+const nameInput = document.getElementById("nameInput");
+const nameMsg = document.getElementById("nameMsg");
+const kpiToday = document.getElementById("kpiToday");
+const kpiTomorrow = document.getElementById("kpiTomorrow");
+const lastUpdated = document.getElementById("lastUpdated");
+const viewDaysEl = document.getElementById("viewDays");
+
+// ─── RENDER ───────────────────────────────────────────────────────────────
+function render() {
+  daysCount = Number(viewDaysEl.value);
+  const endDate = addDays(start, daysCount - 1);
+  const fmtStart = start.toLocaleDateString("fr-FR", { day:"numeric", month:"long" });
+  const fmtEnd = endDate.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+  rangeLabel.textContent = `${fmtStart} → ${fmtEnd}`;
+
+  // update profile
+  const myName = getMyName();
+  if (myName) {
+    profileName.textContent = myName;
+    avatarEl.textContent = myName[0].toUpperCase();
+  } else {
+    profileName.textContent = "Nom non défini";
+    avatarEl.textContent = "?";
+  }
+
+  // KPIs
+  const todayISO = toISO(new Date());
+  const tomorrowISO = toISO(addDays(new Date(), 1));
+  const todayList = getPresentNames(todayISO);
+  const tomList = getPresentNames(tomorrowISO);
+
+  kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${todayList.length}</b>`;
+  kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${tomList.length}</b>`;
+
+
+
+  // Days
+  daysListEl.innerHTML = "";
+  for (let i = 0; i < daysCount; i++) {
+    const d = addDays(start, i);
+    const dayISO = toISO(d);
+    const names = getPresentNames(dayISO);
+    const myStatus = getMyStatus(dayISO);
+    const today = isToday(dayISO);
+
+    const pill = document.createElement("div");
+    pill.className = "day-pill" + (today ? " today" : "");
+
+    const chipsHtml = names.length
+      ? names.map(n => {
+          const c = colorFromName(n);
+          return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};">
+            <span class="dot" style="background:${c.dot}"></span>${esc(n)}
+          </div>`;
+        }).join("")
+      : `<span class="chip empty">Aucun présent</span>`;
+
+    const toggleLabel = myStatus === "PRESENT" ? "✅ Présent" : "➕ Me noter";
+    const toggleClass = myStatus === "PRESENT" ? "" : "off";
+
+    pill.innerHTML = `
+      <div class="day-label">
+        <span class="day-num">${dayNum(d)}</span>
+        <span class="day-name">${dayName(d)}</span>
+        <span class="day-date">${dayMonth(d)}</span>
+        ${today ? '<span class="today-badge">● Aujourd\'hui</span>' : ""}
+      </div>
+      <div class="chips">${chipsHtml}</div>
+      <button class="big-toggle ${toggleClass}" data-day="${dayISO}">${toggleLabel}</button>
+    `;
+
+    daysListEl.appendChild(pill);
+  }
+
+  // Bind toggles
+  document.querySelectorAll(".big-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const myName = getMyName();
+      if (!myName) {
+        nameForm.classList.add("visible");
+        nameInput.focus();
+        msgEl.textContent = "⚠️ Définis ton nom d'abord.";
+        return;
+      }
+      const day = btn.getAttribute("data-day");
+      toggleMyDay(day);
+
+      // Met à jour uniquement ce bouton + les chips de ce jour
+      const newStatus = getMyStatus(day);
+      btn.textContent = newStatus === "PRESENT" ? "✅ Présent" : "➕ Me noter";
+      btn.className = "big-toggle" + (newStatus === "PRESENT" ? "" : " off");
+
+      const pill = btn.closest(".day-pill");
+      const chipsEl = pill.querySelector(".chips");
+      const names = getPresentNames(day);
+      chipsEl.innerHTML = names.length
+        ? names.map(n => {
+            const c = colorFromName(n);
+            return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};">
+              <span class="dot" style="background:${c.dot}"></span>${esc(n)}
+            </div>`;
+          }).join("")
+        : `<span class="chip empty">Aucun présent</span>`;
+
+      // Met à jour les KPIs
+      const todayISO = toISO(new Date());
+      const tomorrowISO = toISO(addDays(new Date(), 1));
+      kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${getPresentNames(todayISO).length}</b>`;
+      kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${getPresentNames(tomorrowISO).length}</b>`;
+
+      msgEl.textContent = "✅ Mis à jour.";
+    });
+  });
+}
+
+// ─── EVENTS ───────────────────────────────────────────────────────────────
+document.getElementById("editNameBtn").onclick = () => {
+  nameForm.classList.toggle("visible");
+  nameInput.value = getMyName();
+  nameInput.focus();
+};
+
+document.getElementById("saveName").onclick = () => {
+  const v = nameInput.value.trim();
+  if (!v) { nameMsg.textContent = "Prénom vide !"; return; }
+  saveMyName(v);
+  nameForm.classList.remove("visible");
+  nameMsg.textContent = "";
+  render();
+  msgEl.textContent = "✅ Nom enregistré.";
+};
+
+nameInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("saveName").click();
+});
+
+viewDaysEl.onchange = render;
+document.getElementById("prev").onclick = () => { start = addDays(start, -daysCount); render(); };
+document.getElementById("next").onclick = () => { start = addDays(start, daysCount); render(); };
+document.getElementById("refresh").onclick = () => { render(); msgEl.textContent = "✅ Rafraîchi."; };
+
+document.getElementById("weekPresent").onclick = () => {
+  if (!getMyName()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
+  for (let i = 0; i < daysCount; i++) {
+    setDayStatus(toISO(addDays(start, i)), "PRESENT");
+  }
+  render();
+  msgEl.textContent = "✅ Présent toute la période.";
+};
+
+document.getElementById("copyPrev").onclick = () => {
+  if (!getMyName()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
+  for (let i = 0; i < daysCount; i++) {
+    const prev = toISO(addDays(start, i - daysCount));
+    const curr = toISO(addDays(start, i));
+    const st = getMyStatus(prev);
+    if (st) setDayStatus(curr, st);
+  }
+  render();
+  msgEl.textContent = "✅ Période précédente copiée.";
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+seedDemoData();
+render();
+
+
+</script>
+</body>
+</html>
