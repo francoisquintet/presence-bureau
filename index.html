@@ -9,31 +9,32 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Présence">
 <link rel="apple-touch-icon" href="logo.png">
-<meta name="theme-color" content="#16a34a">
+<meta name="theme-color" content="#6366f1">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f0f2f0;
+    --bg: #eef0f8;
     --card: #ffffff;
-    --text: #0f1a0f;
-    --muted: #6b7c6b;
-    --border: rgba(15,26,15,.09);
-    --shadow: 0 2px 12px rgba(15,26,15,.06);
-    --shadow-lg: 0 8px 32px rgba(15,26,15,.10);
+    --text: #1a1a2e;
+    --muted: #6b6b8a;
+    --border: rgba(26,26,46,.09);
+    --shadow: 0 2px 12px rgba(26,26,46,.08);
+    --shadow-lg: 0 8px 32px rgba(26,26,46,.12);
     --radius: 20px;
     --pill: 999px;
-    --accent: #16a34a;
-    --accent-soft: rgba(22,163,74,.10);
-    --accent-mid: rgba(22,163,74,.25);
-    --today-bg: rgba(22,163,74,.07);
-    --today-border: rgba(22,163,74,.30);
+    --accent: #6366f1;
+    --accent-soft: rgba(99,102,241,.10);
+    --accent-mid: rgba(99,102,241,.25);
+    --today-bg: rgba(99,102,241,.07);
+    --today-border: rgba(99,102,241,.30);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
+    background: linear-gradient(135deg, #e8eaf6 0%, #ede7f6 40%, #e3f2fd 100%);
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
     padding: 20px 16px 40px;
@@ -44,7 +45,7 @@
     content: '';
     position: fixed;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(15,26,15,.04) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(99,102,241,.05) 1px, transparent 1px);
     background-size: 28px 28px;
     pointer-events: none;
     z-index: 0;
@@ -77,11 +78,11 @@
 
   .brand-icon {
     width: 36px; height: 36px;
-    background: var(--accent);
+    background: #6366f1;
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     font-size: 18px;
-    box-shadow: 0 2px 8px rgba(22,163,74,.30);
+    box-shadow: 0 2px 8px rgba(99,102,241,.35);
   }
 
   .spacer { flex: 1; }
@@ -139,11 +140,11 @@
     width: 38px; height: 38px;
     border-radius: 50%;
     background: var(--accent-soft);
-    border: 2px solid var(--accent-mid);
+    border: 2px solid rgba(99,102,241,.30);
     display: flex; align-items: center; justify-content: center;
     font-weight: 800;
     font-size: 15px;
-    color: var(--accent);
+    color: #6366f1;
     flex-shrink: 0;
   }
 
@@ -248,7 +249,7 @@
   .day-pill.today {
     background: var(--today-bg);
     border-color: var(--today-border);
-    box-shadow: 0 4px 20px rgba(22,163,74,.08);
+    box-shadow: 0 4px 20px rgba(99,102,241,.10);
   }
 
   .day-label {
@@ -335,7 +336,7 @@
     font-family: 'DM Sans', sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
-  .big-toggle:hover { background: rgba(22,163,74,.16); box-shadow: 0 4px 14px rgba(22,163,74,.15); }
+  .big-toggle:hover { background: rgba(99,102,241,.16); box-shadow: 0 4px 14px rgba(99,102,241,.20); }
   .big-toggle:active { transform: translateY(1px) scale(.99); }
   .big-toggle.off {
     border-color: var(--border);
