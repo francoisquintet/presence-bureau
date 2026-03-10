@@ -453,139 +453,126 @@
 </div>
 
 <script>
-// ─── STOCKAGE LOCAL (remplacera Supabase plus tard) ───────────────────────
-// Clé unique par navigateur = l'utilisateur
-const ME_KEY = "presence_me_" + (()=>{
+// ─── SUPABASE ─────────────────────────────────────────────────────────────
+const SUPA_URL = "https://ybpqdlrgivymuffoqwcp.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicHFkbHJnaXZ5bXVmZm9xd2NwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTI4ODksImV4cCI6MjA4ODcyODg4OX0.KZSC5uvkNJxwTNn3hFYOYnF7vkoFHigYmaEMyfv0Nbc";
+
+async function supa(path, opts={}) {
+  const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
+    headers: {
+      "apikey": SUPA_KEY,
+      "Authorization": `Bearer ${SUPA_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": opts.prefer || "return=representation"
+    },
+    ...opts
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ─── IDENTITÉ LOCALE ──────────────────────────────────────────────────────
+const ME_KEY = (() => {
   let k = localStorage.getItem("_uid");
-  if (!k) { k = Math.random().toString(36).slice(2); localStorage.setItem("_uid", k); }
+  if (!k) { k = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); localStorage.setItem("_uid", k); }
   return k;
 })();
 
-// Base de données en mémoire (partagée via localStorage pour ce test)
-// Structure: { "YYYY-MM-DD": { "userKey": "PRESENT"|"ABSENT" } }
-// Users: { "userKey": "Nom" }
+function getMyNameLocal() { return localStorage.getItem("_myname") || ""; }
+function setMyNameLocal(n) { localStorage.setItem("_myname", n); }
 
-function dbGet(key, fallback) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
-}
-function dbSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
-}
-
-function getUsers() { return dbGet("pres_users", {}); }
-function setUsers(u) { dbSet("pres_users", u); }
-function getPresence() { return dbGet("pres_data", {}); }
-function setPresence(p) { dbSet("pres_data", p); }
-
-function getMyName() {
-  const users = getUsers();
-  return users[ME_KEY] || "";
-}
-function saveMyName(name) {
-  const users = getUsers();
-  users[ME_KEY] = name;
-  setUsers(users);
-}
-function getMyStatus(dayISO) {
-  const pres = getPresence();
-  return (pres[dayISO] && pres[dayISO][ME_KEY]) || "";
-}
-function toggleMyDay(dayISO) {
-  const pres = getPresence();
-  if (!pres[dayISO]) pres[dayISO] = {};
-  const cur = pres[dayISO][ME_KEY] || "";
-  pres[dayISO][ME_KEY] = (cur === "PRESENT") ? "ABSENT" : "PRESENT";
-  setPresence(pres);
-}
-function setDayStatus(dayISO, status) {
-  const pres = getPresence();
-  if (!pres[dayISO]) pres[dayISO] = {};
-  pres[dayISO][ME_KEY] = status;
-  setPresence(pres);
-}
-function getPresentNames(dayISO) {
-  const pres = getPresence();
-  const users = getUsers();
-  const day = pres[dayISO] || {};
-  return Object.entries(day)
-    .filter(([, s]) => s === "PRESENT")
-    .map(([k]) => users[k] || "(Sans nom)")
-    .sort((a, b) => a.localeCompare(b, "fr"));
+// ─── API ──────────────────────────────────────────────────────────────────
+async function saveMyName(name) {
+  await supa("users", {
+    method: "POST",
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: JSON.stringify({ id: ME_KEY, name })
+  });
+  setMyNameLocal(name);
 }
 
-// ─── DÉMO : ajouter des collègues fictifs ────────────────────────────────
-function seedDemoData() {
-  // Efface tout et repart de zéro avec les bons noms
-  if (dbGet("pres_seeded_v3", false)) return;
-  localStorage.removeItem("pres_users");
-  localStorage.removeItem("pres_data");
-  localStorage.removeItem("pres_seeded");
-  localStorage.removeItem("pres_seeded_v2");
-
-  const fakeUsers = { "demo_damien": "Damien", "demo_emilie": "Émilie", "demo_barbara": "Barbara", "demo_hakima": "Hakima", "demo_philippine": "Philippine" };
-  setUsers(fakeUsers);
-
-  const pres = {};
-  const today = new Date(); today.setHours(0,0,0,0);
-  const fakeKeys = Object.keys(fakeUsers);
-
-  for (let i = -3; i < 14; i++) {
-    const d = new Date(today); d.setDate(d.getDate() + i);
-    const iso = toISO(d);
-    if (!pres[iso]) pres[iso] = {};
-    fakeKeys.forEach(k => {
-      if (Math.random() > 0.35) pres[iso][k] = "PRESENT";
-    });
+async function loadViewData(startISO, endISO) {
+  const rows = await supa(`presence?day=gte.${startISO}&day=lte.${endISO}&select=day,user_id,status,users(name)`);
+  const byDay = {};
+  const myByDay = {};
+  for (const r of rows) {
+    const day = r.day;
+    const name = r.users?.name || "(Sans nom)";
+    const status = r.status;
+    const uid = r.user_id;
+    if (uid === ME_KEY) myByDay[day] = status;
+    if (status === "PRESENT") {
+      if (!byDay[day]) byDay[day] = [];
+      byDay[day].push(name);
+    }
   }
-  setPresence(pres);
-  dbSet("pres_seeded_v3", true);
+  Object.keys(byDay).forEach(d => byDay[d].sort((a,b) => a.localeCompare(b,"fr")));
+  return { byDay, myByDay };
+}
+
+async function toggleDay(dayISO) {
+  // Lit le statut actuel
+  const rows = await supa(`presence?day=eq.${dayISO}&user_id=eq.${ME_KEY}&select=status`);
+  const current = rows?.[0]?.status || "";
+  const next = current === "PRESENT" ? "ABSENT" : "PRESENT";
+  await supa("presence", {
+    method: "POST",
+    prefer: "resolution=merge-duplicates,return=representation",
+    body: JSON.stringify({ user_id: ME_KEY, day: dayISO, status: next, updated_at: new Date().toISOString() })
+  });
+  return next;
+}
+
+async function setAllPresent(days) {
+  const rows = days.map(d => ({ user_id: ME_KEY, day: d, status: "PRESENT", updated_at: new Date().toISOString() }));
+  await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(rows) });
+}
+
+async function copyPrev(currentDays, prevDays) {
+  const rows = await supa(`presence?day=in.(${prevDays.join(",")})&user_id=eq.${ME_KEY}&select=day,status`);
+  const map = {};
+  rows.forEach(r => map[r.day] = r.status);
+  const toInsert = [];
+  for (let i = 0; i < currentDays.length; i++) {
+    const st = map[prevDays[i]];
+    if (st) toInsert.push({ user_id: ME_KEY, day: currentDays[i], status: st, updated_at: new Date().toISOString() });
+  }
+  if (toInsert.length) await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(toInsert) });
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────
 function toISO(d) {
-  return d.getFullYear() + "-" +
-    String(d.getMonth()+1).padStart(2,"0") + "-" +
-    String(d.getDate()).padStart(2,"0");
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function startOfWeekMon(d) {
   const x = new Date(d); x.setHours(0,0,0,0);
   const day = x.getDay() || 7;
-  x.setDate(x.getDate() - (day - 1));
+  x.setDate(x.getDate() - (day-1));
   return x;
 }
-function isToday(dayISO) {
-  const t = new Date(); t.setHours(0,0,0,0);
-  return dayISO === toISO(t);
-}
-function prettyDay(d) {
-  return d.toLocaleDateString("fr-FR", { weekday:"long", day:"2-digit", month:"long" });
-}
+function isToday(dayISO) { const t = new Date(); t.setHours(0,0,0,0); return dayISO === toISO(t); }
 function dayNum(d) { return String(d.getDate()).padStart(2,"0"); }
 function dayName(d) { return d.toLocaleDateString("fr-FR", { weekday:"short" }); }
 function dayMonth(d) { return d.toLocaleDateString("fr-FR", { day:"2-digit", month:"2-digit" }); }
-
-// couleur par nom
 function colorFromName(name) {
   let h = 2166136261;
   for (let i=0; i<name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
   h = (h >>> 0) % 360;
-  return {
-    bg: `hsla(${h},65%,92%,1)`,
-    border: `hsla(${h},50%,72%,1)`,
-    dot: `hsla(${h},60%,45%,1)`,
-    text: `hsla(${h},55%,20%,1)`
-  };
+  return { bg:`hsla(${h},65%,92%,1)`, border:`hsla(${h},50%,72%,1)`, dot:`hsla(${h},60%,45%,1)`, text:`hsla(${h},55%,20%,1)` };
 }
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
+function esc(s) { return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ─── STATE ────────────────────────────────────────────────────────────────
 let start = startOfWeekMon(new Date());
 let daysCount = 7;
+let viewData = { byDay: {}, myByDay: {} };
 
-// ─── UI REFS ─────────────────────────────────────────────────────────────
+// ─── UI REFS ──────────────────────────────────────────────────────────────
 const daysListEl = document.getElementById("daysList");
 const msgEl = document.getElementById("msg");
 const rangeLabel = document.getElementById("rangeLabel");
@@ -600,41 +587,28 @@ const lastUpdated = document.getElementById("lastUpdated");
 const viewDaysEl = document.getElementById("viewDays");
 
 // ─── RENDER ───────────────────────────────────────────────────────────────
-function render() {
+function renderUI() {
   daysCount = Number(viewDaysEl.value);
   const endDate = addDays(start, daysCount - 1);
   const fmtStart = start.toLocaleDateString("fr-FR", { day:"numeric", month:"long" });
   const fmtEnd = endDate.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
   rangeLabel.textContent = `${fmtStart} → ${fmtEnd}`;
 
-  // update profile
-  const myName = getMyName();
-  if (myName) {
-    profileName.textContent = myName;
-    avatarEl.textContent = myName[0].toUpperCase();
-  } else {
-    profileName.textContent = "Nom non défini";
-    avatarEl.textContent = "?";
-  }
+  const myName = getMyNameLocal();
+  profileName.textContent = myName || "Nom non défini";
+  avatarEl.textContent = myName ? myName[0].toUpperCase() : "?";
 
-  // KPIs
   const todayISO = toISO(new Date());
   const tomorrowISO = toISO(addDays(new Date(), 1));
-  const todayList = getPresentNames(todayISO);
-  const tomList = getPresentNames(tomorrowISO);
+  kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${(viewData.byDay[todayISO]||[]).length}</b>`;
+  kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${(viewData.byDay[tomorrowISO]||[]).length}</b>`;
 
-  kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${todayList.length}</b>`;
-  kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${tomList.length}</b>`;
-
-
-
-  // Days
   daysListEl.innerHTML = "";
   for (let i = 0; i < daysCount; i++) {
     const d = addDays(start, i);
     const dayISO = toISO(d);
-    const names = getPresentNames(dayISO);
-    const myStatus = getMyStatus(dayISO);
+    const names = viewData.byDay[dayISO] || [];
+    const myStatus = viewData.myByDay[dayISO] || "";
     const today = isToday(dayISO);
 
     const pill = document.createElement("div");
@@ -643,14 +617,9 @@ function render() {
     const chipsHtml = names.length
       ? names.map(n => {
           const c = colorFromName(n);
-          return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};">
-            <span class="dot" style="background:${c.dot}"></span>${esc(n)}
-          </div>`;
+          return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};"><span class="dot" style="background:${c.dot}"></span>${esc(n)}</div>`;
         }).join("")
       : `<span class="chip empty">Aucun présent</span>`;
-
-    const toggleLabel = myStatus === "PRESENT" ? "✅ Présent" : "➕ Me noter";
-    const toggleClass = myStatus === "PRESENT" ? "" : "off";
 
     pill.innerHTML = `
       <div class="day-label">
@@ -660,105 +629,113 @@ function render() {
         ${today ? '<span class="today-badge">● Aujourd\'hui</span>' : ""}
       </div>
       <div class="chips">${chipsHtml}</div>
-      <button class="big-toggle ${toggleClass}" data-day="${dayISO}">${toggleLabel}</button>
+      <button class="big-toggle ${myStatus === "PRESENT" ? "" : "off"}" data-day="${dayISO}">${myStatus === "PRESENT" ? "✅ Présent" : "➕ Me noter"}</button>
     `;
-
     daysListEl.appendChild(pill);
   }
 
-  // Bind toggles
   document.querySelectorAll(".big-toggle").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const myName = getMyName();
-      if (!myName) {
-        nameForm.classList.add("visible");
-        nameInput.focus();
-        msgEl.textContent = "⚠️ Définis ton nom d'abord.";
-        return;
-      }
+    btn.addEventListener("click", async () => {
+      if (!getMyNameLocal()) { nameForm.classList.add("visible"); nameInput.focus(); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
       const day = btn.getAttribute("data-day");
-      toggleMyDay(day);
-
-      // Met à jour uniquement ce bouton + les chips de ce jour
-      const newStatus = getMyStatus(day);
-      btn.textContent = newStatus === "PRESENT" ? "✅ Présent" : "➕ Me noter";
-      btn.className = "big-toggle" + (newStatus === "PRESENT" ? "" : " off");
-
-      const pill = btn.closest(".day-pill");
-      const chipsEl = pill.querySelector(".chips");
-      const names = getPresentNames(day);
-      chipsEl.innerHTML = names.length
-        ? names.map(n => {
-            const c = colorFromName(n);
-            return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};">
-              <span class="dot" style="background:${c.dot}"></span>${esc(n)}
-            </div>`;
-          }).join("")
-        : `<span class="chip empty">Aucun présent</span>`;
-
-      // Met à jour les KPIs
-      const todayISO = toISO(new Date());
-      const tomorrowISO = toISO(addDays(new Date(), 1));
-      kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${getPresentNames(todayISO).length}</b>`;
-      kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${getPresentNames(tomorrowISO).length}</b>`;
-
-      msgEl.textContent = "✅ Mis à jour.";
+      btn.disabled = true;
+      try {
+        const next = await toggleDay(day);
+        viewData.myByDay[day] = next;
+        const myName = getMyNameLocal();
+        if (next === "PRESENT") {
+          if (!viewData.byDay[day]) viewData.byDay[day] = [];
+          if (!viewData.byDay[day].includes(myName)) { viewData.byDay[day].push(myName); viewData.byDay[day].sort((a,b)=>a.localeCompare(b,"fr")); }
+        } else {
+          if (viewData.byDay[day]) viewData.byDay[day] = viewData.byDay[day].filter(n => n !== myName);
+        }
+        btn.textContent = next === "PRESENT" ? "✅ Présent" : "➕ Me noter";
+        btn.className = "big-toggle" + (next === "PRESENT" ? "" : " off");
+        const pill = btn.closest(".day-pill");
+        const chipsEl = pill.querySelector(".chips");
+        const names = viewData.byDay[day] || [];
+        chipsEl.innerHTML = names.length
+          ? names.map(n => { const c=colorFromName(n); return `<div class="chip" style="background:${c.bg};border-color:${c.border};color:${c.text};"><span class="dot" style="background:${c.dot}"></span>${esc(n)}</div>`; }).join("")
+          : `<span class="chip empty">Aucun présent</span>`;
+        const todayISO = toISO(new Date());
+        const tomorrowISO = toISO(addDays(new Date(), 1));
+        kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${(viewData.byDay[todayISO]||[]).length}</b>`;
+        kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${(viewData.byDay[tomorrowISO]||[]).length}</b>`;
+        msgEl.textContent = "✅ Mis à jour.";
+      } catch(e) { msgEl.textContent = "❌ Erreur : " + e.message; }
+      btn.disabled = false;
     });
   });
+}
+
+async function loadAndRender() {
+  msgEl.textContent = "Chargement…";
+  daysCount = Number(viewDaysEl.value);
+  const startISO = toISO(start);
+  const endISO = toISO(addDays(start, daysCount - 1));
+  try {
+    viewData = await loadViewData(startISO, endISO);
+    renderUI();
+    msgEl.textContent = "";
+  } catch(e) {
+    msgEl.textContent = "❌ Erreur de connexion : " + e.message;
+  }
 }
 
 // ─── EVENTS ───────────────────────────────────────────────────────────────
 document.getElementById("editNameBtn").onclick = () => {
   nameForm.classList.toggle("visible");
-  nameInput.value = getMyName();
+  nameInput.value = getMyNameLocal();
   nameInput.focus();
 };
 
-document.getElementById("saveName").onclick = () => {
+document.getElementById("saveName").onclick = async () => {
   const v = nameInput.value.trim();
   if (!v) { nameMsg.textContent = "Prénom vide !"; return; }
-  saveMyName(v);
-  nameForm.classList.remove("visible");
-  nameMsg.textContent = "";
-  render();
-  msgEl.textContent = "✅ Nom enregistré.";
+  nameMsg.textContent = "Enregistrement…";
+  try {
+    await saveMyName(v);
+    nameForm.classList.remove("visible");
+    nameMsg.textContent = "";
+    await loadAndRender();
+    msgEl.textContent = "✅ Nom enregistré.";
+  } catch(e) { nameMsg.textContent = "❌ " + e.message; }
 };
 
-nameInput.addEventListener("keydown", e => {
-  if (e.key === "Enter") document.getElementById("saveName").click();
-});
+nameInput.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("saveName").click(); });
 
-viewDaysEl.onchange = render;
-document.getElementById("prev").onclick = () => { start = addDays(start, -daysCount); render(); };
-document.getElementById("next").onclick = () => { start = addDays(start, daysCount); render(); };
-document.getElementById("refresh").onclick = () => { render(); msgEl.textContent = "✅ Rafraîchi."; };
+viewDaysEl.onchange = loadAndRender;
+document.getElementById("prev").onclick = () => { start = addDays(start, -daysCount); loadAndRender(); };
+document.getElementById("next").onclick = () => { start = addDays(start, daysCount); loadAndRender(); };
+document.getElementById("refresh").onclick = loadAndRender;
 
-document.getElementById("weekPresent").onclick = () => {
-  if (!getMyName()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
-  for (let i = 0; i < daysCount; i++) {
-    setDayStatus(toISO(addDays(start, i)), "PRESENT");
-  }
-  render();
-  msgEl.textContent = "✅ Présent toute la période.";
+document.getElementById("weekPresent").onclick = async () => {
+  if (!getMyNameLocal()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
+  msgEl.textContent = "Enregistrement…";
+  try {
+    const days = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i)));
+    await setAllPresent(days);
+    await loadAndRender();
+    msgEl.textContent = "✅ Présent toute la période.";
+  } catch(e) { msgEl.textContent = "❌ " + e.message; }
 };
 
-document.getElementById("copyPrev").onclick = () => {
-  if (!getMyName()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
-  for (let i = 0; i < daysCount; i++) {
-    const prev = toISO(addDays(start, i - daysCount));
-    const curr = toISO(addDays(start, i));
-    const st = getMyStatus(prev);
-    if (st) setDayStatus(curr, st);
-  }
-  render();
-  msgEl.textContent = "✅ Période précédente copiée.";
+document.getElementById("copyPrev").onclick = async () => {
+  if (!getMyNameLocal()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
+  msgEl.textContent = "Copie…";
+  try {
+    const curr = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i)));
+    const prev = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i - daysCount)));
+    await copyPrev(curr, prev);
+    await loadAndRender();
+    msgEl.textContent = "✅ Copie effectuée.";
+  } catch(e) { msgEl.textContent = "❌ " + e.message; }
 };
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
-seedDemoData();
-render();
-
-
+loadAndRender();
 </script>
+
 </body>
 </html>
+
