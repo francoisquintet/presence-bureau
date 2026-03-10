@@ -479,22 +479,31 @@ async function supa(path, opts={}) {
 }
 
 // ─── IDENTITÉ LOCALE ──────────────────────────────────────────────────────
-const ME_KEY = (() => {
+function ME_KEY() {
   let k = localStorage.getItem("_uid");
   if (!k) { k = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); localStorage.setItem("_uid", k); }
   return k;
-})();
+}
 
 function getMyNameLocal() { return localStorage.getItem("_myname") || ""; }
 function setMyNameLocal(n) { localStorage.setItem("_myname", n); }
 
 // ─── API ──────────────────────────────────────────────────────────────────
 async function saveMyName(name) {
-  await supa("users", {
-    method: "POST",
-    prefer: "resolution=merge-duplicates,return=representation",
-    body: JSON.stringify({ id: ME_KEY, name })
-  });
+  // Vérifie si ce nom existe déjà
+  const existing = await supa(`users?name=eq.${encodeURIComponent(name)}&select=id`);
+  if (existing && existing.length > 0) {
+    // Le nom existe → on récupère son id et on l'utilise localement
+    const existingId = existing[0].id;
+    localStorage.setItem("_uid", existingId);
+  } else {
+    // Nouveau nom → on insère
+    await supa("users", {
+      method: "POST",
+      prefer: "return=representation",
+      body: JSON.stringify({ id: ME_KEY(), name })
+    });
+  }
   setMyNameLocal(name);
 }
 
@@ -518,13 +527,13 @@ async function loadViewData(startISO, endISO) {
 }
 
 async function toggleDay(dayISO) {
-  const rows = await supa(`presence?day=eq.${dayISO}&user_id=eq.${ME_KEY}&select=status`);
+  const rows = await supa(`presence?day=eq.${dayISO}&user_id=eq.${ME_KEY()}&select=status`);
   const current = rows?.[0]?.status || "";
   const next = current === "PRESENT" ? "ABSENT" : "PRESENT";
 
   if (rows && rows.length > 0) {
     // La ligne existe → on la met à jour avec PATCH
-    await supa(`presence?day=eq.${dayISO}&user_id=eq.${ME_KEY}`, {
+    await supa(`presence?day=eq.${dayISO}&user_id=eq.${ME_KEY()}`, {
       method: "PATCH",
       prefer: "return=representation",
       body: JSON.stringify({ status: next, updated_at: new Date().toISOString() })
@@ -534,25 +543,25 @@ async function toggleDay(dayISO) {
     await supa("presence", {
       method: "POST",
       prefer: "return=representation",
-      body: JSON.stringify({ user_id: ME_KEY, day: dayISO, status: next, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ user_id: ME_KEY(), day: dayISO, status: next, updated_at: new Date().toISOString() })
     });
   }
   return next;
 }
 
 async function setAllPresent(days) {
-  const rows = days.map(d => ({ user_id: ME_KEY, day: d, status: "PRESENT", updated_at: new Date().toISOString() }));
+  const rows = days.map(d => ({ user_id: ME_KEY(), day: d, status: "PRESENT", updated_at: new Date().toISOString() }));
   await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(rows) });
 }
 
 async function copyPrev(currentDays, prevDays) {
-  const rows = await supa(`presence?day=in.(${prevDays.join(",")})&user_id=eq.${ME_KEY}&select=day,status`);
+  const rows = await supa(`presence?day=in.(${prevDays.join(",")})&user_id=eq.${ME_KEY()}&select=day,status`);
   const map = {};
   rows.forEach(r => map[r.day] = r.status);
   const toInsert = [];
   for (let i = 0; i < currentDays.length; i++) {
     const st = map[prevDays[i]];
-    if (st) toInsert.push({ user_id: ME_KEY, day: currentDays[i], status: st, updated_at: new Date().toISOString() });
+    if (st) toInsert.push({ user_id: ME_KEY(), day: currentDays[i], status: st, updated_at: new Date().toISOString() });
   }
   if (toInsert.length) await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(toInsert) });
 }
