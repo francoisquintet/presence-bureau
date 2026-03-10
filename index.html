@@ -628,6 +628,10 @@ function renderUI() {
   for (let i = 0; i < daysCount; i++) {
     const d = addDays(start, i);
     const dayISO = toISO(d);
+
+    // Sauter samedi (6) et dimanche (0)
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+
     const names = viewData.byDay[dayISO] || [];
     const myStatus = viewData.myByDay[dayISO] || "";
     const today = isToday(dayISO);
