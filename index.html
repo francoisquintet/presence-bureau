@@ -497,24 +497,24 @@ function setMyNameLocal(n) { localStorage.setItem("_myname", n); }
 async function saveMyName(name) {
   const myId = ME_KEY();
 
-  // Est-ce que mon id existe déjà dans users ?
-  const meExists = await supa(`users?id=eq.${myId}&select=id`);
+  // Ce nom existe-t-il déjà dans la base ?
+  const nameExists = await supa(`users?name=eq.${encodeURIComponent(name)}&select=id`);
 
-  if (meExists && meExists.length > 0) {
-    // Je existe déjà → je mets à jour mon nom (PATCH)
-    await supa(`users?id=eq.${myId}`, {
-      method: "PATCH",
-      prefer: "return=representation",
-      body: JSON.stringify({ name })
-    });
+  if (nameExists && nameExists.length > 0) {
+    // Le nom existe → on adopte son id (sync inter-appareils)
+    localStorage.setItem("_uid", nameExists[0].id);
   } else {
-    // Est-ce que ce nom existe déjà avec un autre id ?
-    const nameExists = await supa(`users?name=eq.${encodeURIComponent(name)}&select=id`);
-    if (nameExists && nameExists.length > 0) {
-      // Nom pris par quelqu'un d'autre → on récupère son id
-      localStorage.setItem("_uid", nameExists[0].id);
+    // Mon id existe-t-il déjà ?
+    const meExists = await supa(`users?id=eq.${myId}&select=id`);
+    if (meExists && meExists.length > 0) {
+      // Je renomme → PATCH
+      await supa(`users?id=eq.${myId}`, {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: JSON.stringify({ name })
+      });
     } else {
-      // Nouveau → on insère
+      // Nouveau → INSERT
       await supa("users", {
         method: "POST",
         prefer: "return=representation",
