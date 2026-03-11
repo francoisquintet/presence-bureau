@@ -456,7 +456,6 @@
 
     <div class="days-list" id="daysList"></div>
 
-    <div class="msg" id="msg"></div>
   </div>
 
 </div>
@@ -496,19 +495,32 @@ function setMyNameLocal(n) { localStorage.setItem("_myname", n); }
 
 // ─── API ──────────────────────────────────────────────────────────────────
 async function saveMyName(name) {
-  // Vérifie si ce nom existe déjà
-  const existing = await supa(`users?name=eq.${encodeURIComponent(name)}&select=id`);
-  if (existing && existing.length > 0) {
-    // Le nom existe → on récupère son id et on l'utilise localement
-    const existingId = existing[0].id;
-    localStorage.setItem("_uid", existingId);
-  } else {
-    // Nouveau nom → on insère
-    await supa("users", {
-      method: "POST",
+  const myId = ME_KEY();
+
+  // Est-ce que mon id existe déjà dans users ?
+  const meExists = await supa(`users?id=eq.${myId}&select=id`);
+
+  if (meExists && meExists.length > 0) {
+    // Je existe déjà → je mets à jour mon nom (PATCH)
+    await supa(`users?id=eq.${myId}`, {
+      method: "PATCH",
       prefer: "return=representation",
-      body: JSON.stringify({ id: ME_KEY(), name })
+      body: JSON.stringify({ name })
     });
+  } else {
+    // Est-ce que ce nom existe déjà avec un autre id ?
+    const nameExists = await supa(`users?name=eq.${encodeURIComponent(name)}&select=id`);
+    if (nameExists && nameExists.length > 0) {
+      // Nom pris par quelqu'un d'autre → on récupère son id
+      localStorage.setItem("_uid", nameExists[0].id);
+    } else {
+      // Nouveau → on insère
+      await supa("users", {
+        method: "POST",
+        prefer: "return=representation",
+        body: JSON.stringify({ id: myId, name })
+      });
+    }
   }
   setMyNameLocal(name);
 }
@@ -627,7 +639,6 @@ let viewData = { byDay: {}, myByDay: {} };
 
 // ─── UI REFS ──────────────────────────────────────────────────────────────
 const daysListEl = document.getElementById("daysList");
-const msgEl = document.getElementById("msg");
 const rangeLabel = document.getElementById("rangeLabel");
 const profileName = document.getElementById("profileName");
 const avatarEl = document.getElementById("avatarEl");
@@ -692,7 +703,7 @@ function renderUI() {
 
   document.querySelectorAll(".big-toggle").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!getMyNameLocal()) { nameForm.classList.add("visible"); nameInput.focus(); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
+      if (!getMyNameLocal()) { nameForm.classList.add("visible"); nameInput.focus(); return; }
       const day = btn.getAttribute("data-day");
       btn.disabled = true;
       try {
@@ -717,24 +728,20 @@ function renderUI() {
         const tomorrowISO = toISO(addDays(new Date(), 1));
         kpiToday.innerHTML = `<span class="dot"></span> Aujourd'hui&nbsp;: <b>${(viewData.byDay[todayISO]||[]).length}</b>`;
         kpiTomorrow.innerHTML = `<span class="dot"></span> Demain&nbsp;: <b>${(viewData.byDay[tomorrowISO]||[]).length}</b>`;
-        msgEl.textContent = "✅ Mis à jour.";
-      } catch(e) { msgEl.textContent = "❌ Erreur : " + e.message; }
+      } catch(e) { }
       btn.disabled = false;
     });
   });
 }
 
 async function loadAndRender() {
-  msgEl.textContent = "Chargement…";
   daysCount = Number(viewDaysEl.value);
   const startISO = toISO(start);
   const endISO = toISO(addDays(start, daysCount - 1));
   try {
     viewData = await loadViewData(startISO, endISO);
     renderUI();
-    msgEl.textContent = "";
   } catch(e) {
-    msgEl.textContent = "❌ Erreur de connexion : " + e.message;
   }
 }
 
@@ -754,7 +761,6 @@ document.getElementById("saveName").onclick = async () => {
     nameForm.classList.remove("visible");
     nameMsg.textContent = "";
     await loadAndRender();
-    msgEl.textContent = "✅ Nom enregistré.";
   } catch(e) { nameMsg.textContent = "❌ " + e.message; }
 };
 
@@ -766,26 +772,22 @@ document.getElementById("next").onclick = () => { start = addDays(start, daysCou
 document.getElementById("refresh").onclick = loadAndRender;
 
 document.getElementById("weekPresent").onclick = async () => {
-  if (!getMyNameLocal()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
-  msgEl.textContent = "Enregistrement…";
+  if (!getMyNameLocal()) { nameForm.classList.add("visible"); return; }
   try {
     const days = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i)));
     await setAllPresent(days);
     await loadAndRender();
-    msgEl.textContent = "✅ Présent toute la période.";
-  } catch(e) { msgEl.textContent = "❌ " + e.message; }
+  } catch(e) { }
 };
 
 document.getElementById("copyPrev").onclick = async () => {
-  if (!getMyNameLocal()) { nameForm.classList.add("visible"); msgEl.textContent = "⚠️ Définis ton nom d'abord."; return; }
-  msgEl.textContent = "Copie…";
+  if (!getMyNameLocal()) { nameForm.classList.add("visible"); return; }
   try {
     const curr = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i)));
     const prev = Array.from({length: daysCount}, (_, i) => toISO(addDays(start, i - daysCount)));
     await copyPrev(curr, prev);
     await loadAndRender();
-    msgEl.textContent = "✅ Copie effectuée.";
-  } catch(e) { msgEl.textContent = "❌ " + e.message; }
+  } catch(e) { }
 };
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
