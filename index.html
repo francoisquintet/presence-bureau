@@ -40,6 +40,11 @@
     padding: 20px 16px 40px;
   }
 
+  /* fallback pour mobile */
+  @supports not (background-attachment: fixed) {
+    body { background: linear-gradient(135deg, #e8eaf6 0%, #ede7f6 40%, #e3f2fd 100%) center / cover no-repeat; }
+  }
+
   /* subtle grid texture */
   body::before {
     content: '';
@@ -551,20 +556,46 @@ async function toggleDay(dayISO) {
 }
 
 async function setAllPresent(days) {
-  const rows = days.map(d => ({ user_id: ME_KEY(), day: d, status: "PRESENT", updated_at: new Date().toISOString() }));
-  await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(rows) });
+  for (const d of days) {
+    const existing = await supa(`presence?day=eq.${d}&user_id=eq.${ME_KEY()}&select=status`);
+    if (existing && existing.length > 0) {
+      await supa(`presence?day=eq.${d}&user_id=eq.${ME_KEY()}`, {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: JSON.stringify({ status: "PRESENT", updated_at: new Date().toISOString() })
+      });
+    } else {
+      await supa("presence", {
+        method: "POST",
+        prefer: "return=representation",
+        body: JSON.stringify({ user_id: ME_KEY(), day: d, status: "PRESENT", updated_at: new Date().toISOString() })
+      });
+    }
+  }
 }
 
 async function copyPrev(currentDays, prevDays) {
   const rows = await supa(`presence?day=in.(${prevDays.join(",")})&user_id=eq.${ME_KEY()}&select=day,status`);
   const map = {};
   rows.forEach(r => map[r.day] = r.status);
-  const toInsert = [];
   for (let i = 0; i < currentDays.length; i++) {
     const st = map[prevDays[i]];
-    if (st) toInsert.push({ user_id: ME_KEY(), day: currentDays[i], status: st, updated_at: new Date().toISOString() });
+    if (!st) continue;
+    const existing = await supa(`presence?day=eq.${currentDays[i]}&user_id=eq.${ME_KEY()}&select=status`);
+    if (existing && existing.length > 0) {
+      await supa(`presence?day=eq.${currentDays[i]}&user_id=eq.${ME_KEY()}`, {
+        method: "PATCH",
+        prefer: "return=representation",
+        body: JSON.stringify({ status: st, updated_at: new Date().toISOString() })
+      });
+    } else {
+      await supa("presence", {
+        method: "POST",
+        prefer: "return=representation",
+        body: JSON.stringify({ user_id: ME_KEY(), day: currentDays[i], status: st, updated_at: new Date().toISOString() })
+      });
+    }
   }
-  if (toInsert.length) await supa("presence", { method: "POST", prefer: "resolution=merge-duplicates,return=representation", body: JSON.stringify(toInsert) });
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────
